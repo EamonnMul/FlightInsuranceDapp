@@ -1,6 +1,7 @@
-pragma solidity ^0.4.25;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.11;
 
-import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract FlightSuretyData {
     using SafeMath for uint256;
@@ -11,22 +12,55 @@ contract FlightSuretyData {
 
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
+  
 
-    /********************************************************************************************/
-    /*                                       EVENT DEFINITIONS                                  */
-    /********************************************************************************************/
+    enum AirlineStatus {None, Nominated, Registered, Funded}
+    
+    AirlineStatus constant StatusDefault = AirlineStatus.None;
+
+
+     struct Airline {
+        AirlineStatus status;
+        address[] votes;
+        uint256 funds;
+        uint256 underwrittenAmount;
+    }
+    
+    struct FlightInsurance {
+        mapping(address => uint256) purchasedAmount;
+        address[] passengers;
+        bool isPaidOut;
+    }
+
+    struct Flight {
+        bool isRegistered;
+        address airline;
+        string flight;
+        uint8 statusCode;
+        uint256 updatedTimestamp;        
+        
+    }
+    mapping(bytes32 => Flight) private flights;
+    mapping(address => Airline) private airlines;
+    mapping(bytes32 => FlightInsurance) private flightInsurance;
+    mapping(address => uint256) private passengerBalance;
+    mapping(address => bool) private authorizedCallers;
+    
+
+    uint256 public AirlineCount = 0;
+
+
+
+
+
 
 
     /**
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
-    constructor
-                                (
-                                ) 
-                                public 
-    {
-        contractOwner = msg.sender;
+    constructor() {
+        contractOwner = msg.sender;   
     }
 
     /********************************************************************************************/
@@ -56,9 +90,80 @@ contract FlightSuretyData {
         _;
     }
 
+     
+    modifier requireBalanceSufficient(address account, uint256 amount) {
+        require(amount<=passengerBalance[account], "Passenger balance is less than the requested withdrawal amount");
+        _;
+    }
+
+    modifier notPaidOut(bytes32 flightKey) {
+        require(!flightInsurance[flightKey].isPaidOut,"This policy has already paid out");
+        _;
+    }
+   
+
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
+     
+    function isAirline(address airline) public view returns(bool) {
+        bool result = false; 
+        if (airlines[airline].status != AirlineStatus.None) {
+            result = true;
+        }
+        return result; 
+    }
+
+    function checkPassengerInsured(address passengerAddress, bytes32 flightKey) 
+        external view  requireIsOperational
+        returns(bool)
+    {
+        return flightInsurance[flightKey].purchasedAmount[passengerAddress] > 0;
+    }
+
+     function checkPaidOut(bytes32 flightKey) external view requireIsOperational returns(bool)
+    {
+        return flightInsurance[flightKey].isPaidOut;
+    }
+    function checkPassengerBalance(address passengerAddress) external view
+        requireIsOperational
+        returns(uint256)
+    {
+        return passengerBalance[passengerAddress];
+    }
+
+    function checkAirlineStatus(address airline) public view returns(AirlineStatus) {
+        return airlines[airline].status; 
+    }
+
+    function checkAirlineRegistration(address airlineAddress) external view requireIsOperational returns (bool){
+        return airlines[airlineAddress].status == AirlineStatus.Registered || airlines[airlineAddress].status == AirlineStatus.Funded;
+    }
+
+    function checkAirlineFunded(address airlineAddress) external view requireIsOperational returns (bool)
+    {
+        return airlines[airlineAddress].status == AirlineStatus.Funded;
+    }
+
+    function AirlineNominated(address airlineAddress) external view requireIsOperational returns (bool)
+    {
+        return airlines[airlineAddress].status == AirlineStatus.Nominated || airlines[airlineAddress].status == AirlineStatus.Registered || airlines[airlineAddress].status == AirlineStatus.Funded;
+    }
+
+    function FlightRegistered(bytes32 flightKey) external view requireIsOperational returns (bool) {
+        return flights[flightKey].isRegistered;
+    }
+
+      function authorizeCaller(address _address) external requireIsOperational requireContractOwner
+    {
+        authorizedCallers[_address] = true;
+    }
+
+     function RetrieveFlightKey(address airline, string memory flight,uint256 departureTime
+    ) public  pure returns (bytes32) {
+        return keccak256(abi.encodePacked(airline, flight, departureTime));
+    }
+
 
     /**
     * @dev Get operating status of contract
@@ -79,32 +184,107 @@ contract FlightSuretyData {
     *
     * When operational mode is disabled, all write transactions except for this one will fail
     */    
-    function setOperatingStatus
-                            (
-                                bool mode
-                            ) 
-                            external
-                            requireContractOwner 
+    function setOperatingStatus(bool status) external requireContractOwner returns (bool)
     {
-        operational = mode;
+        operational = status;
+        return status;
     }
 
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
+   // function to vote airline 
+   function AirlineVote(address airlineAddress, address voterAddress)
+        external
+        requireIsOperational
+        returns (uint256)
+    {
+        airlines[airlineAddress].votes.push(voterAddress);
+        return airlines[airlineAddress].votes.length;
+    }
+
+    
+
+    function getAirlineCount() public view requireIsOperational returns(uint256){
+        return AirlineCount; 
+
+    }
+
+    /**
+    * @dev Register a future flight for insuring.
+    *
+    */  
+    function registerFlight (address airline, string memory flight, uint256 departureTime, uint8 statusCode) external requireIsOperational returns(bool){
+        bytes32 key = getFlightKey(airline, flight, departureTime);
+        flights[key] = Flight( true,airline,flight, statusCode, departureTime );
+        return true;}
+
+    function totalInsured(address airlineAddress) external view requireIsOperational returns(uint256)
+    {
+        return airlines[airlineAddress].underwrittenAmount;
+    }
+
+     function AirlineFunds(address airlineAddress) external view requireIsOperational returns (uint256)
+    {
+        return airlines[airlineAddress].funds;
+    }
+
+    
+
+    function AirlineFund(address airlineAddress, uint256 fundingAmount)
+        payable 
+        public
+        
+        requireIsOperational
+        returns (uint256)
+    {
+        airlines[airlineAddress].funds = airlines[airlineAddress].funds.add(fundingAmount);
+        airlines[airlineAddress].status = AirlineStatus.Funded;
+        return airlines[airlineAddress].funds;
+    }
+
+
+
+
+
 
    /**
     * @dev Add an airline to the registration queue
     *      Can only be called from FlightSuretyApp contract
     *
     */   
-    function registerAirline
-                            (   
-                            )
-                            external
-                            pure
+    function registerAirline(address Address) public payable requireIsOperational returns (bool)
     {
+        
+        airlines[Address].status = AirlineStatus.Registered;
+        AirlineCount++;
+        return airlines[Address].status == AirlineStatus.Registered;
     }
+
+
+    //function to nominate an Airline
+
+     function nominateAirline(address airlineAddress) external requireIsOperational{
+        airlines[airlineAddress] = Airline( AirlineStatus.Nominated, new address[](0),0,0 ); }
+
+    //fund airline
+    function fundAirline(address airlineAddress, uint256 fundingAmount) external requireIsOperational returns (uint256)
+    {
+        airlines[airlineAddress].funds = airlines[airlineAddress].funds.add(fundingAmount);
+        airlines[airlineAddress].status = AirlineStatus.Funded;
+        return airlines[airlineAddress].funds;
+    }
+
+    // function to update Flight Status 
+
+    function updateFlightStatus(uint8 statusCode, bytes32 flightKey) external requireIsOperational  {
+        flights[flightKey].statusCode = statusCode;
+    }
+
+    function retrieveFlightStatus(bytes32 flightKey) external view requireIsOperational  returns (uint8) {
+        return flights[flightKey].statusCode;
+    }
+
 
 
    /**
@@ -112,11 +292,17 @@ contract FlightSuretyData {
     *
     */   
     function buy
-                            (                             
+                            (   
+                                address passengerAddress, uint256 insuranceAmount, bytes32 flightKey, address airlineAddress                          
                             )
                             external
                             payable
+                            
     {
+    require( insuranceAmount<= 1 ether, 'Insurance cannot exceed 1 ether');
+        airlines[airlineAddress].underwrittenAmount.add(insuranceAmount);
+        flightInsurance[flightKey].purchasedAmount[passengerAddress] = insuranceAmount;
+        flightInsurance[flightKey].passengers.push(passengerAddress);
 
     }
 
@@ -125,10 +311,28 @@ contract FlightSuretyData {
     */
     function creditInsurees
                                 (
+                                bytes32 flightKey, 
+                                address airlineAddress
                                 )
                                 external
-                                pure
+                                requireIsOperational
+                                notPaidOut(flightKey)
     {
+        for(uint i = 0; i < flightInsurance[flightKey].passengers.length; i++) {
+            address Address = flightInsurance[flightKey].passengers[i];
+            uint256 purchasedAmount = flightInsurance[flightKey].purchasedAmount[Address];
+            uint256 payAmount = purchasedAmount.mul(3).div(2); // in order to get 1.5 
+            passengerBalance[Address] = passengerBalance[Address].add(payAmount);
+            airlines[airlineAddress].funds.sub(payAmount);
+        }
+        flightInsurance[flightKey].isPaidOut = true;
+    }
+
+     function updateStatusOfFlight(
+        uint8 statusCode,
+        bytes32 flightKey
+    ) external requireIsOperational {
+        flights[flightKey].statusCode = statusCode;
     }
     
 
@@ -138,10 +342,13 @@ contract FlightSuretyData {
     */
     function pay
                             (
+                                address payable person, uint256 amount
                             )
                             external
-                            pure
+                            requireIsOperational
     {
+        passengerBalance[person] = passengerBalance[person].sub(amount);
+        person.transfer(amount);
     }
 
    /**
@@ -174,11 +381,16 @@ contract FlightSuretyData {
     * @dev Fallback function for funding smart contract.
     *
     */
-    function() 
+    fallback() 
                             external 
                             payable 
+                            
     {
         fund();
+    }
+
+    receive() external payable {
+        // custom function code
     }
 
 

@@ -200,6 +200,11 @@ contract FlightSuretyApp {
         return flightData.checkAirlineRegistration(air);
     }
 
+     function checkOracleRegistered(address oracleAddress) public view requireIsOperational returns (bool)
+    {
+        return oracles[oracleAddress].isRegistered;
+    }
+
     function checkPassengerInsured(address passenger,address airline,string memory flight,uint256 departureTime
     ) external view requireIsOperational returns (bool) {
         bytes32 key = getFlightKey(airline, flight, departureTime);
@@ -301,6 +306,19 @@ contract FlightSuretyApp {
         emit OracleRequest(index, airline, flight, timestamp);
     } 
 
+    function getFlightKey
+                        (
+                            address airline,
+                            string memory flight,
+                            uint256 timestamp
+                        )
+                        pure
+                        internal
+                        returns(bytes32) 
+    {
+        return keccak256(abi.encodePacked(airline, flight, timestamp));
+    }
+
 //Function to fund airline
 
  function fundAirline()
@@ -366,7 +384,7 @@ function registerFlight(string memory flight, uint256 departureTime
     // Key = hash(index, flight, timestamp)
     mapping(bytes32 => ResponseInfo) private oracleResponses;
 
-   
+  
     
 
 
@@ -379,13 +397,10 @@ function registerFlight(string memory flight, uint256 departureTime
     {
         // Require registration fee
         require(msg.value >= REGISTRATION_FEE, "Registration fee is required");
-
         uint8[3] memory indexes = generateIndexes(msg.sender);
+        oracles[msg.sender] = Oracle({ isRegistered: true,indexes: indexes});
+        emit OracleRegistered(msg.sender, indexes);
 
-        oracles[msg.sender] = Oracle({
-                                        isRegistered: true,
-                                        indexes: indexes
-                                    });
     }
 
     function getMyIndexes
@@ -439,18 +454,7 @@ function registerFlight(string memory flight, uint256 departureTime
     }
 
 
-    function getFlightKey
-                        (
-                            address airline,
-                            string memory flight,
-                            uint256 timestamp
-                        )
-                        pure
-                        internal
-                        returns(bytes32) 
-    {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
-    }
+    
 
     // Returns array of three non-duplicating integers from 0-9
     function generateIndexes
@@ -468,10 +472,10 @@ function registerFlight(string memory flight, uint256 departureTime
             indexes[1] = getRandomIndex(account);
         }
 
-        indexes[2] = indexes[1];
-        while((indexes[2] == indexes[0]) || (indexes[2] == indexes[1])) {
+       indexes[2] = indexes[1];
+       while((indexes[2] == indexes[0]) || (indexes[2] == indexes[1])) {
             indexes[2] = getRandomIndex(account);
-        }
+       }
 
         return indexes;
     }

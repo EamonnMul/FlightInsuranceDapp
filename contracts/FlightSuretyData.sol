@@ -137,7 +137,7 @@ contract FlightSuretyData {
     }
 
     function checkAirlineRegistration(address airlineAddress) external view requireIsOperational returns (bool){
-        return airlines[airlineAddress].status == AirlineStatus.Registered || airlines[airlineAddress].status == AirlineStatus.Funded;
+        return airlines[airlineAddress].status == AirlineStatus.Registered ;
     }
 
     function checkAirlineFunded(address airlineAddress) external view requireIsOperational returns (bool)

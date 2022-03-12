@@ -211,6 +211,7 @@ contract FlightSuretyApp {
         return flightData.checkPassengerInsured(passenger, key);
     }
 
+
     function checkPaidOut(bytes32 flightKey) external view requireIsOperational returns(bool)
     {
         return flightData.checkPaidOut(flightKey);
@@ -348,6 +349,12 @@ function registerFlight(string memory flight, uint256 departureTime
         );
         emit RegisterFlight(msg.sender, flight);
     }
+
+function checkFlightRegistered(address airline, string memory flight, uint256 departureTime ) external requireIsOperational  view returns (bool) {
+    bytes32 key = getFlightKey(airline, flight, departureTime);
+    return flightData.FlightRegistered(key);
+
+}
 
 
 

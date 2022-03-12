@@ -1,6 +1,7 @@
 {
   "name": "flightsurety",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "directories": {
     "test": "test"

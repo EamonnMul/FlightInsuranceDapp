@@ -38,6 +38,17 @@ import './flightsurety.css';
                 }]);
             });
         });
+
+         // GET BALANCE
+         DOM.elid('get-balance').addEventListener('click', () => {
+            contract.getUserBalance((error, result) => {
+                display('User', `passenger (Account 3: ${contract.passengerAddress})`, [{
+                    label: 'Current balance',
+                    error: error,
+                    value: `${result} ether`
+                }]);
+            });
+        });
     
     });
     

@@ -35,7 +35,23 @@ contract FlightSuretyApp {
 
     address private contractOwner;          // Account used to deploy contract
 
+    function viewContractOwner() public view returns(address) {
+        return contractOwner; 
+    }
+
     address payable public  dataContractAddress;
+
+
+    constructor ( address payable DataContract) 
+                                 
+    {
+        
+        contractOwner = msg.sender;
+        dataContractAddress = DataContract;
+        flightData = FlightSuretyData(DataContract);
+        
+    }
+
     
  
     /********************************************************************************************/
@@ -75,6 +91,14 @@ contract FlightSuretyApp {
     modifier FundedAirline(address airlineAddress) {
         require(
             flightData.checkAirlineFunded(airlineAddress) == true, "Airline is not funded");
+        _;
+    }
+
+    modifier EligibleRegister(address airlineAddress) {
+        require(
+            flightData.checkAirlineFunded(airlineAddress) == true || flightData.checkAirlineRegistration(msg.sender) == true,
+            'Airline not funded or registered' 
+        );
         _;
     }
 
@@ -129,8 +153,6 @@ contract FlightSuretyApp {
     /********************************************************************************************/
     event NominateAirline(address indexed airlineAddress);
 
-    
-
     event AirlineRegistration(address indexed airlineAddress);
 
     event AirlineFundingAdded(
@@ -148,9 +170,11 @@ contract FlightSuretyApp {
 
     event FlightStatusInfo(address airline,string flight,uint256 departureTime,uint8 status);
 
-    event OracleRequest(uint8 index,address airline,string flight,uint256 departureTime );
+    event OracleRequest(uint8 index,address airline,string flight,uint256 departureTime, bytes32 key );
 
-    event OracleReport(address airline, string flight, uint256 departureTime, uint8 status);
+    event OracleSubmission(uint8 index,address airline,string flight,uint256 departureTime, bytes32 key );
+
+    event OracleReport(bytes32 key, address airline, string flight, uint256 departureTime, uint8 status);
 
     event OracleRegistered(address indexed oracleAddress, uint8[3] indexes);
 
@@ -168,9 +192,7 @@ contract FlightSuretyApp {
                             external
                             AirlineNotRegistered(airlineAddress)
                             requireIsOperational() 
-                            FundedAirline(msg.sender)
-                            
-                        
+                            EligibleRegister(msg.sender)
                             
                             returns (bool)
                             
@@ -179,7 +201,7 @@ contract FlightSuretyApp {
          {
         uint256 votes = flightData.AirlineVote(airlineAddress, msg.sender);
         bool result;
-        if (flightData.getAirlineCount() > CONSENSUS_THRESHOLD) {
+        if (flightData.getAirlineCount() >= CONSENSUS_THRESHOLD) {
             if (votes >= flightData.getAirlineCount().div(VOTE_THRESHOLD)) { //checking if there is over half the amount of airlines in votes to register
                 result = flightData.registerAirline(airlineAddress);
                 emit AirlineRegistration(airlineAddress);
@@ -187,13 +209,16 @@ contract FlightSuretyApp {
                 result = false; 
             }
         } else {
-            require(flightData.checkAirlineRegistration(msg.sender),'Airline must be registered by exiting member');
+            //require(flightData.checkAirlineRegistration(msg.sender),'Airline must be registered by exiting member');
             flightData.nominateAirline(airlineAddress);
             result = flightData.registerAirline(airlineAddress);
             emit AirlineRegistration(airlineAddress);
         }
         return result; 
     }
+    }
+     function checkAirlineNominated( address air) public  view returns(bool) {
+        return flightData.AirlineNominated(air);
     }
 
     function checkAirlineRegistration( address air) public  view returns(bool) {
@@ -238,6 +263,11 @@ contract FlightSuretyApp {
         return flightData.isOperational();  // Modify to call data contract's status
     }
 
+    function sendy() public {
+        flightData.sendy();
+
+    }
+
      
 
     function setOperationalStatus(bool mode) external ContractOwner returns (bool)
@@ -261,9 +291,6 @@ contract FlightSuretyApp {
 
 
 
-  
-  
-
 
    
    /**
@@ -277,7 +304,7 @@ contract FlightSuretyApp {
                                     uint256 departureTime,
                                     uint8 statusCode
                                 )
-                                public
+                                internal
     {
         bytes32 flightKey = getFlightKey(airline, flight, departureTime);
         flightData.updateStatusOfFlight(statusCode, flightKey);
@@ -296,6 +323,7 @@ contract FlightSuretyApp {
                             uint256 timestamp                            
                         )
                         external
+                        returns(uint8)
     {
         uint8 index = getRandomIndex(msg.sender);
 
@@ -304,7 +332,8 @@ contract FlightSuretyApp {
         ResponseInfo storage newResponse = oracleResponses[key];
         newResponse.requester= msg.sender;
         newResponse.isOpen = true;
-        emit OracleRequest(index, airline, flight, timestamp);
+        emit OracleRequest(index, airline, flight, timestamp,key);
+        return index;
     } 
 
     function getFlightKey
@@ -340,7 +369,9 @@ function nominateAirline(address airlineAddress) external requireIsOperational
         emit NominateAirline(airlineAddress);}
 
 function registerFlight(string memory flight, uint256 departureTime 
-    ) external requireIsOperational {
+    ) external requireIsOperational 
+    EligibleRegister(msg.sender) //only a registered or funded airline can register a flight
+     {
         flightData.registerFlight(
             msg.sender,
             flight,
@@ -351,7 +382,7 @@ function registerFlight(string memory flight, uint256 departureTime
     }
 
 function checkFlightRegistered(address airline, string memory flight, uint256 departureTime ) external requireIsOperational  view returns (bool) {
-    bytes32 key = getFlightKey(airline, flight, departureTime);
+    bytes32 key = flightData.getFlightKey(airline, flight, departureTime);
     return flightData.FlightRegistered(key);
 
 }
@@ -381,7 +412,7 @@ function checkFlightRegistered(address airline, string memory flight, uint256 de
     // Model for responses from oracles
     struct ResponseInfo {
         address requester;                              // Account that requested status
-        bool isOpen;                                    // If open, oracle responses are accepted
+        bool isOpen;                                 // If open, oracle responses are accepted
         mapping(uint8 => address[]) responses;          // Mapping key is the status code reported
                                                         // This lets us group responses and identify
                                                         // the response that majority of the oracles
@@ -440,17 +471,16 @@ function checkFlightRegistered(address airline, string memory flight, uint256 de
                         )
                         external
     {
-        require((oracles[msg.sender].indexes[0] == index) || (oracles[msg.sender].indexes[1] == index) || (oracles[msg.sender].indexes[2] == index), "Index does not match oracle request");
-
-
         bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp)); 
-        require(oracleResponses[key].isOpen, "Flight or timestamp do not match oracle request");
-
-        oracleResponses[key].responses[statusCode].push(msg.sender);
+        require(oracleResponses[key].isOpen == true, 'Not valid');
+            
+            emit OracleSubmission(index, airline, flight ,departureTime, key);
+           // require(oracleResponses[key].isOpen, "Flight or timestamp do not match oracle request");
+            oracleResponses[key].responses[statusCode].push(msg.sender);
 
         // Information isn't considered verified until at least MIN_RESPONSES
         // oracles respond with the *** same *** information
-        emit OracleReport(airline, flight, timestamp, statusCode);
+        emit OracleReport(key, airline, flight, timestamp, statusCode);
         if (oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES) {
 
             emit FlightStatusInfo(airline, flight, timestamp, statusCode);
@@ -458,6 +488,10 @@ function checkFlightRegistered(address airline, string memory flight, uint256 de
             // Handle flight status as appropriate
             processFlightStatus(airline, flight,  departureTime, statusCode);
         }
+
+      
+
+        
     }
 
 
@@ -468,7 +502,7 @@ function checkFlightRegistered(address airline, string memory flight, uint256 de
                             (                       
                                 address account         
                             )
-                            internal
+                            public
                             returns(uint8[3] memory)
     {
         uint8[3] memory indexes;
@@ -492,13 +526,14 @@ function checkFlightRegistered(address airline, string memory flight, uint256 de
                             (
                                 address account
                             )
-                            internal
+                            public
+            
                             returns (uint8)
     {
         uint8 maxValue = 10;
 
         // Pseudo random number...the incrementing nonce adds variation
-        uint8 random = uint8(uint256(keccak256(abi.encodePacked(blockhash(block.number - nonce++), account))) % maxValue);
+        uint8 random = uint8(uint(keccak256(abi.encodePacked(nonce ++, block.timestamp, account)))% maxValue);
 
         if (nonce > 250) {
             nonce = 0;  // Can only fetch blockhashes for last 256 blocks so we adapt
@@ -524,22 +559,5 @@ receive() external payable {
 
     FlightSuretyData private flightData;
 
-    constructor
-                                (
-                                    address payable DataContract, address firstAirline
-                                ) 
-                                 
-    {
-        
-        contractOwner = msg.sender;
-        dataContractAddress = DataContract;
-        flightData = FlightSuretyData(DataContract);
-        flightData.nominateAirline(firstAirline);
-        flightData.registerAirline(firstAirline);
-        flightData.fundAirline(firstAirline,10000000000000000000);
-    }
-
 
 }   
-
-  

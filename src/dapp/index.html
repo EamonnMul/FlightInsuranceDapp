@@ -5,43 +5,43 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>FlightSurety</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="flightsurety.css">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"> 
     <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 
 <body>
 
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="#">FlightSurety</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault"
-            aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </nav>
+    <nav class="navbar navbar-inverse">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="#">Flight Surety Decentralized Application</a>
+          </div>
+          <ul class="nav navbar-nav">
+
+          </ul>
+        </div>
+      </nav>
+    
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      </nav>
 
     <main class="container">
 
-        <div id="display-wrapper" class="top-20">
-        </div>
+        <div class="top-20" id="display-wrapper">
+         </div>
         <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            <label class="form">Flight</label> <select id="flight-selection"></select>
+            &nbsp;<btn class="btn btn-primary" id="buy-insurance">Buy insurance (1 ETH)</btn>
+            &nbsp;<btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            &nbsp;<btn class="btn btn-primary" id="withdraw-credit">Withdraw credit</btn>
+            &nbsp;<btn class="btn btn-primary" id="get-balance">Get balance</btn>
         </div>
-        <div class="form-group">
-            Buy Flight Insurance
-            <br>
-            <input type="text" id="productNotes" name="productNotes" value="Best beans for Espresso" size="60"><br>
-            Product Price
-            <br>
-            <input type="number" id="productPrice" name="productPrice" value=1>ETH<br>
-            
-            <button class="btn-buy" id="button" type="button" data-id="5">Buy Insurance</button>
       
-        </div>
-        <div class=form-break></div>
-        <hr>
-    </div>
     </main>
 
 </body>
-
+<script src="index.js"></script>
 </html>

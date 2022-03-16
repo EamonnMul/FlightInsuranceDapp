@@ -1,16 +1,20 @@
-
 var Test = require('../config/testConfig.js');
-const { default: app } = require('../src/server/server.js');
 //var BigNumber = require('bignumber.js');
+const truffleAssert = require('truffle-assertions');
 
 contract('Oracles', async (accounts) => {
 
-  const TEST_ORACLES_COUNT = 20;
+  
   var config;
   before('setup contract', async () => {
     config = await Test.Config(accounts);
     data = config.flightSuretyData;
-    appCont = config.flightSuretyApp;
+    app = config.flightSuretyApp;
+    accounts = config.testAddresses;
+
+    accounts1 = await web3.eth.getAccounts();
+    const ORACLES_COUNT = accounts1.length ;
+  
 
     // Watch contract events
     const STATUS_CODE_UNKNOWN = 0;
@@ -23,76 +27,101 @@ contract('Oracles', async (accounts) => {
   });
 
 
-  it('can register oracles', async () => {
+ 
+
+  it('can generate random indexes', async () => {
+
+    let indexs = []
+
+    try{
+      for (let index = 0; index < accounts.length; index++) {
+        let randomInt = await app.generateIndexes.call(accounts[index]);
+        indexs.push(randomInt);
+      }
+    }
+    catch(e){
+      console.log(e);
+    }
+
+    assert(indexs.length,accounts.length,'Not expected')
+
+
+  });
+
+  it('Oracles are able to register', async () => {
+
+    let regFee = web3.utils.toWei('1', 'ether');
+
+
+    for(let a=1; a< accounts1.length; a++) {      
+      await config.flightSuretyApp.registerOracle({ from: accounts1[a], value: regFee });
+      let result = await config.flightSuretyApp.getMyIndexes.call({from: accounts1[a]});
+      console.log(`Oracle Registered: ${result[0]}, ${result[1]}, ${result[2]}`);
+    }
+  });
+
+ 
+
+  it('Can submit request flight status information', async () => {
+     // ARRANGE
+     let flight = 'ND1309'; // Course number
+     let timestamp = new Date(2020, 11, 30, 18, 0, 0).valueOf().toString();
+     let noError = true;  
     
-    // ARRANGE
-    let fee = web3.utils.toWei('1', 'ether');
 
-
-    try {
-      // ACT
-    for(let a=1; a<TEST_ORACLES_COUNT; a++) {     
-      await appCont.registerOracle({ from: accounts[a], value: fee });
-      let isOracleRegistered = await appCont.checkOracleRegistered(accounts[a]);
-
-      let result = await appCont.getMyIndexes.call({from: accounts[a]});
-      
-      
-      console.log(`Oracle Registered: ${isOracleRegistered} ,${result[0]}, ${result[1]}, ${result[2]}`);
-    }
-    }
-    catch(error) {
-      console.log(error);
-    }
+     try {
+       // Submit a request for oracles to get status information for a flight
+     let result = await app.fetchFlightStatus(config.firstAirline, flight, timestamp);
+     truffleAssert.eventEmitted(result,'OracleRequest');
+    
+     } catch (error) {
+       noError = false;
+       
+     }
+    
+     assert(noError,true, 'unable to Submit request');
 
     
   });
 
-  describe('Request the flight info from the oracles', () => {
-
-    //define the variable names needed
-
-    let airlineFundingAmount;
-    let insuranceAmount;
-    let flight;
-    let departureTime;
-    let flightAirline;
-    let passengerAddress;
-
-    let reportedFlightStatus;
-
-    before('Assign variables for the test',()=>{
-      //assign the variables a value
-      airlineFundingAmount = web3.utils.toWei('10', 'ether');
-      insuranceAmount = web3.utils.toWei('1','ether');
-      flight = "NH278";
-      departureTime = "1609623567158";
-      flightAirline = accounts[1];
-      passengerAddress = accounts[2];
-      reportedFlightStatus = 20;
-
-
-    });
-
-
-    it ('register a flight', async () => {
-
-      let flightRegistration = await appCont.registerFlight(flight, departureTime, {from: config.flightAirline})
-      console.log('flight reg ', flightRegistration);
-      let checkFlightReg = await appCont.checkFlightRegistered(config.flightAirline,flight, departureTime);
-      assert(checkFlightReg,true, 'Flight has not been successfully registerec')
-
-    })
-
-    it('Request Flight Status using fetchFlightStatus()', async () =>  {
-
-      let result = await appCont.fetchFlightStatus(config.flightAirline,flight,departureTime);
-
-    });
-
-  });
+  it('Submit an oracle response', async () => {
+    let flight = 'ND1309'; // Course number
+    let timestamp = new Date(2022, 11, 30, 18, 0, 0).valueOf().toString();
+    let noError = true;  
+    let responses= 0;
+    let nonresponses = 0;
+    
 
   
+
+    
+
+   
+   
+    let request = await app.fetchFlightStatus(config.firstAirline, flight, timestamp);
+    truffleAssert.eventEmitted(request,'OracleRequest');
+    
+     for (let index = 1; index < accounts1.length; index++) {
+       //checking Oracle Registration
+       let result = await app.checkOracleRegistered(accounts1[index]);
+       assert(result,true,'Oracle not registered')
+       
+       let OracleIndexs = await app.getMyIndexes({from: accounts1[index]})
+       try {
+        for (let idx = 0; idx < 3; idx++) {
+          let submission = await app.submitOracleResponse(OracleIndexs[idx],config.firstAirline,flight,timestamp,timestamp,10, {from: accounts1[index]});
+          responses++;}
+       } catch (error) {
+         
+       }
+       
+    }
+     
+  
+
+    console.log('Responses: ', responses );
+
+  });
 
 
 

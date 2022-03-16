@@ -53,4 +53,38 @@ export default class Contract {
                 callback(error, payload);
             });
     }
+    ////////////////////////////////
+    buyFlightInsurance(flightIdx, callback) {
+        let self = this;
+
+        let flight = self.flights[parseInt(flightIdx)];
+
+        self.appContract.methods
+            .buyInsurance(flight.airlineAddress, flight.flightNumber, flight.departureTime)
+            .send({from: self.passengerAddress, value: self.ONE_ETHER, gas: 3000000}, (error, result) => {
+                if (error) {
+                    console.error(error);
+                }
+                callback(error, flight);
+            });
+    }
+
+
+    withdrawFlightInsuranceCredit(flightIdx, callback) {
+        let self = this;
+
+        let flight = self.flights[parseInt(flightIdx)];
+
+
+        self.appContract.methods
+            .WithdrawInsurance(
+                //desired amount of the balance to withdraw
+            )
+            .send({from: self.passengerAddress}, (error, result) => {
+                if (error) {
+                    console.error(error);
+                }
+                callback(error, flight);
+            });
+    }
 }

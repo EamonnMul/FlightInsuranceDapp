@@ -25,6 +25,19 @@ import './flightsurety.css';
                 display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
             });
         })
+
+          // WITHDRAW CREDIT
+          DOM.elid('withdraw-credit').addEventListener('click', () => {
+            let flightId = parseInt(DOM.elid('flight-selection').value);
+
+            contract.WithdrawInsurance(flightId, (error, result) => {
+                display('Flight insurance', 'Withhdraw flight insurance credit', [{
+                    label: 'Status',
+                    error: error,
+                    value: `Flight insurance credit withdrawn!`
+                }]);
+            });
+        });
     
     });
     
@@ -46,6 +59,8 @@ function display(title, description, results) {
     displayDiv.append(section);
 
 }
+
+
 
 
 

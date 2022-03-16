@@ -1,9 +1,7 @@
-import { createRequire } from "module"; // Bring in the ability to create the 'require' method
-const require = createRequire(import.meta.url);
-const  FlightSuretyApp = require('../../build/contracts/FlightSuretyApp.json' ) ;
-const  Config = require('./config.json');
-const Web3 = require('web3')  ;
-const express = require('express') ;
+import FlightSuretyApp from '../../build/contracts/FlightSuretyApp.json';
+import Config from './config.json';
+import Web3 from 'web3';
+import express from 'express';
 
 const ORACLES_COUNT = 20;
 const REGISTRATION_FEE = web3.utils.toWei("1", "ether");

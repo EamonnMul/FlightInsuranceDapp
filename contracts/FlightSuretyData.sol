@@ -49,18 +49,29 @@ contract FlightSuretyData {
 
     uint256 public AirlineCount = 0;
 
+    ////////
 
+     function checkIsAuthorised(address _address) public requireIsOperational view returns(bool){
+        return authorizedCallers[_address];
+    }
 
+    function sendy()  public {
+        require( checkIsAuthorised(msg.sender) , "Caller is not authorized");
+        emit sender(msg.sender, authorizedCallers[msg.sender]);
+    }
 
+    event sender(address _s, bool _x);
 
-
+ 
 
     /**
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
-    constructor() {
+    constructor(address airlineAddress) {
         contractOwner = msg.sender;   
+        airlines[airlineAddress] = Airline( AirlineStatus.Registered, new address[](0),10000000000000000000,0 ); 
+        AirlineCount ++; 
     }
 
     /********************************************************************************************/
@@ -96,11 +107,13 @@ contract FlightSuretyData {
         _;
     }
 
+
     modifier notPaidOut(bytes32 flightKey) {
         require(!flightInsurance[flightKey].isPaidOut,"This policy has already paid out");
         _;
     }
-   
+
+
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
@@ -113,6 +126,7 @@ contract FlightSuretyData {
         }
         return result; 
     }
+    
 
     function checkPassengerInsured(address passengerAddress, bytes32 flightKey) 
         external view  requireIsOperational
@@ -147,17 +161,21 @@ contract FlightSuretyData {
 
     function AirlineNominated(address airlineAddress) external view requireIsOperational returns (bool)
     {
-        return airlines[airlineAddress].status == AirlineStatus.Nominated || airlines[airlineAddress].status == AirlineStatus.Registered || airlines[airlineAddress].status == AirlineStatus.Funded;
+        return airlines[airlineAddress].status == AirlineStatus.Nominated;
     }
 
     function FlightRegistered(bytes32 flightKey) external view requireIsOperational returns (bool) {
         return flights[flightKey].isRegistered;
     }
+    event AddressAuthorised (address _address, bool status);
 
       function authorizeCaller(address _address) external requireIsOperational requireContractOwner
     {
         authorizedCallers[_address] = true;
+        emit AddressAuthorised(_address, authorizedCallers[_address]);
     }
+
+   
 
      function RetrieveFlightKey(address airline, string memory flight,uint256 departureTime
     ) public  pure returns (bytes32) {
@@ -214,7 +232,10 @@ contract FlightSuretyData {
     * @dev Register a future flight for insuring.
     *
     */  
-    function registerFlight (address airline, string memory flight, uint256 departureTime, uint8 statusCode) external requireIsOperational returns(bool){
+    function registerFlight (address airline, string memory flight, uint256 departureTime, uint8 statusCode) external requireIsOperational   returns(bool){
+        bool Authorised = checkIsAuthorised(msg.sender);
+        emit  sender(msg.sender, Authorised);
+        require( true, "Caller is not authorized for the register Flight function " );
         bytes32 key = getFlightKey(airline, flight, departureTime);
         flights[key] = Flight( true,airline,flight, statusCode, departureTime );
         return true;}
@@ -234,7 +255,6 @@ contract FlightSuretyData {
     function AirlineFund(address airlineAddress, uint256 fundingAmount)
         payable 
         public
-        
         requireIsOperational
         returns (uint256)
     {
@@ -262,14 +282,18 @@ contract FlightSuretyData {
     }
 
 
+
     //function to nominate an Airline
 
-     function nominateAirline(address airlineAddress) external requireIsOperational{
+     function nominateAirline(address airlineAddress) external requireIsOperational {
         airlines[airlineAddress] = Airline( AirlineStatus.Nominated, new address[](0),0,0 ); }
-
+      
     //fund airline
     function fundAirline(address airlineAddress, uint256 fundingAmount) external requireIsOperational returns (uint256)
     {
+        bool Authorised = checkIsAuthorised(msg.sender);
+        emit  sender(msg.sender, Authorised);
+        require( Authorised, "Caller is not authorized to fund the airline");
         airlines[airlineAddress].funds = airlines[airlineAddress].funds.add(fundingAmount);
         airlines[airlineAddress].status = AirlineStatus.Funded;
         return airlines[airlineAddress].funds;
@@ -277,7 +301,10 @@ contract FlightSuretyData {
 
     // function to update Flight Status 
 
-    function updateFlightStatus(uint8 statusCode, bytes32 flightKey) external requireIsOperational  {
+    function updateFlightStatus(uint8 statusCode, bytes32 flightKey) external requireIsOperational   {
+        bool Authorised = checkIsAuthorised(msg.sender);
+        emit  sender(msg.sender, Authorised);
+        require( Authorised, "Caller is not authorized to update the status of the flight");
         flights[flightKey].statusCode = statusCode;
     }
 
@@ -297,9 +324,13 @@ contract FlightSuretyData {
                             )
                             external
                             payable
-                            
+                            requireIsOperational
+                         
     {
-    require( insuranceAmount<= 1 ether, 'Insurance cannot exceed 1 ether');
+        bool Authorised = checkIsAuthorised(msg.sender);
+        emit  sender(msg.sender, Authorised);
+        require( true, "Caller is not authorized to buy insurance for flight");
+        require( insuranceAmount<= 1 ether, 'Insurance cannot exceed 1 ether');
         airlines[airlineAddress].underwrittenAmount.add(insuranceAmount);
         flightInsurance[flightKey].purchasedAmount[passengerAddress] = insuranceAmount;
         flightInsurance[flightKey].passengers.push(passengerAddress);
@@ -318,6 +349,7 @@ contract FlightSuretyData {
                                 requireIsOperational
                                 notPaidOut(flightKey)
     {
+        require( checkIsAuthorised(msg.sender) , "Caller is not authorized");
         for(uint i = 0; i < flightInsurance[flightKey].passengers.length; i++) {
             address Address = flightInsurance[flightKey].passengers[i];
             uint256 purchasedAmount = flightInsurance[flightKey].purchasedAmount[Address];
@@ -371,11 +403,13 @@ contract FlightSuretyData {
                             uint256 timestamp
                         )
                         pure
-                        internal
+                        public
                         returns(bytes32) 
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
+
+ 
 
     /**
     * @dev Fallback function for funding smart contract.

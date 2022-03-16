@@ -1,6 +1,7 @@
 
 var Test = require('../config/testConfig.js');
 var BigNumber = require('bignumber.js');
+const truffleAssertions = require('truffle-assertions');
 
 
 
@@ -26,10 +27,10 @@ contract('Flight Surety Tests', async (accounts) => {
 
   before('setup contract', async () => {
     config = await Test.Config(accounts);
-    await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
+    //await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
     data = config.flightSuretyData;
     app = config.flightSuretyApp;
-    accounts = config.testAddresses;
+    testAddresses = config.testAddresses;
     owner = config.owner;
     airline1 = accounts[1];
     airline2 = accounts[2];
@@ -41,6 +42,8 @@ contract('Flight Surety Tests', async (accounts) => {
     passenger3 = accounts[8];
     passenger4 = accounts[9];
     passenger5 =  accounts[10]
+    await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
+   
 
  
   });
@@ -50,51 +53,23 @@ contract('Flight Surety Tests', async (accounts) => {
   /* Operations and Settings                                                              */
   /****************************************************************************************/
   
-  it('Test that the registration function works for flights on the Data contract', async () => {
-    
-   var flight;
-   var flightbyte;
+  it('Test that the registration function works for flights', async () => {
+  
+   var flight = 'Test Flight';
    var departureTime = new Date(2020, 11, 30, 18, 0, 0).valueOf().toString();
 
-    try { 
     
-    flight = await data.registerFlight(accounts[1],'Test Flight',  departureTime , 0 );
-    flightbyte = await data.RetrieveFlightKey(accounts[1], 'Test Flight',departureTime);
+    console.log(flight,departureTime,airline1); 
+    flight = await app.registerFlight(flight,  departureTime , {from: airline1} );
     
-    }
-    catch(e) {
-        console.log(e);
+    
+   
+    truffleAssertions.eventEmitted(flight,'RegisterFlight')
 
-    }
-    let result = await data.FlightRegistered.call(flightbyte); 
-
-    // ASSERT
-    assert.equal(result, true, "Flight has not been registered");
 
   });
 
-  it('Test to update a flight status', async () => {
-    var flight;
-    var flightbyte;
- 
-     try { 
-     
-     flight = await data.registerFlight(accounts[1],'Test Flight',  new Date(2020, 11, 30, 18, 0, 0).valueOf().toString() , 0 );
-     flightbyte = await data.RetrieveFlightKey(accounts[1], 'Test Flight',new Date(2020, 11, 30, 18, 0, 0).valueOf().toString());
-     
-     }
-     catch(e) {
-         console.log(e);
- 
-     }
-     let result = await data.updateFlightStatus(10,flightbyte);
-     var FlightStatus = await data.retrieveFlightStatus(flightbyte);
-   
- 
-     // ASSERT
-     assert.equal(FlightStatus, 10, "Test has failed");
- 
-   });
+
 
    it('Register first airline when contract is deployed ', async () => {
        var result;
@@ -103,32 +78,34 @@ contract('Flight Surety Tests', async (accounts) => {
 
         result = await data.getAirlineCount()
         
-        
     }
     catch(e) {
         console.log(e);
     }
-   assert.equal(result.length,1,'Result does not match the expected number of airlines')
+    
+        //Check that the first Airline is registered
+        var firstAirlineRegistration = await app.checkAirlineRegistration(airline1);
+        assert(firstAirlineRegistration,true,'The initial airline registering the rest is not registered');
+
+   
+
+   assert.equal(result.toNumber(),1,'Result does not match the expected number of airlines')
  
  
    });
 
    it('Existing airlines can register a new airline until there is 4 airlines registered.', async () => {
-    var TwoAirlineReg;
-    var ThreeAirlineReg;
-    var FourAirlineReg;
+ 
 
  try {
-    
-
-    TwoAirlineReg = await app.registerAirline(airline2, {from: config.firstAirline});
-    ThreeAirlineReg = await  app.registerAirline(airline3, {from: config.firstAirline});
-    FourAirlineReg = await  app.registerAirline(airline4, {from: config.firstAirline});
-    FiveAirlineReg = await  app.registerAirline(airline5, {from: config.firstAirline});
+    let  TwoAirlineReg = await app.registerAirline(airline2, {from: airline1});
+    let ThreeAirlineReg = await  app.registerAirline(airline3, {from: airline1 });
+    let FourAirlineReg = await  app.registerAirline(airline4, {from: airline1});
+    let FiveAirlineReg = await  app.registerAirline(airline5, {from: airline1});
      
  }
  catch(e) {
-     console.log('Error: ', e);
+    console.log('Error: ', e);
  }
 
 
@@ -256,32 +233,20 @@ assert.equal(result5,false,'Registration of 5th airline should not be automatic'
     
     // ARRANGE
 
-    var flight;
-    var flightbyte;
-    var departureTime = new Date(2020, 11, 30, 18, 0, 0).valueOf().toString();
-    var insurancePolicy1;
-    var insurancePolicy2;
     var amount1 =  web3.utils.toWei('1', 'ether');
-    flightbyte = await data.RetrieveFlightKey(airline2, 'Test Flight',departureTime);
-
-    
-
+    var flight = 'Test Flight';
+    var departureTime = new Date(2020, 11, 30, 18, 0, 0).valueOf().toString();
  
      try { 
-         flight = await data.registerFlight(airline2,'Test Flight',  departureTime , 0 );
-         
 
+        let insurancePolicy1 = await app.buyInsurance( airline1, flight, departureTime, {from: passenger1, value: amount1});
 
-        insurancePolicy1 = await data.buy( passenger1,  amount1, flightbyte, airline2); //one ether
-     
-
-     
     }
     catch(e) {
         console.log('Error',e);
 
     }
-    let result1 = await data.checkPassengerInsured(passenger1, flightbyte );
+    let result1 = await app.checkPassengerInsured( passenger1,airline1,flight, departureTime);
 
 
     // ASSERT
@@ -290,45 +255,7 @@ assert.equal(result5,false,'Registration of 5th airline should not be automatic'
 
   });
 
-  it('If a flight is delayed due to airline fault the passenger recieves a credit of 1.5 their insured amount', async () => {
-    
-    // ARRANGE
-    var flight;
-    var departureTime = new Date(2020, 11, 30, 18, 0, 0).valueOf().toString();
-    var amount1 =  web3.utils.toWei('1', 'ether');
-    var flightbyte = await data.RetrieveFlightKey(airline2, 'Test Flight 2',departureTime);
-    var result;
-
-    // ACT
-    try {
-
-        flight = await data.registerFlight(airline2,'Test Flight 2',  departureTime , 0 );
-        
-
-        var ins = await data.buy( passenger1,  amount1, flightbyte, airline2);
-        //var ins =  app.buyInsurance( airline2, 'Test Flight 2', departureTime, {from: passenger1, value: amount1});
-
-        
-
-
-        var statusF = await app.processFlightStatus(airline2,  'Test Flight 2',departureTime,20);
-
-        result = await app.checkPaidOut(flightbyte); 
-        var passengerBalance = await app.checkPassengerBalance(passenger1);
-        var expectedAmount = amount1 * 1.5;
-        console.log('Expected Amount: ',expectedAmount, 'PassengerBalance: ', passengerBalance);
-    }
-    catch(e) {
-
-    }
-
-    
-
-    // ASSERT
-    assert.equal(result, true, "Insuree is not paid out");
-
-
-  });
+ 
 
 });
 

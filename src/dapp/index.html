@@ -25,51 +25,45 @@
       </nav>
     
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar ">
       </nav>
 
       <main class="container">
           <div id="display-wrapper" class="top-20">
             <h1> FlightSurety Decentralized Flight Insurance </h1>
           </div>
-          <div class="row top-20">
+          <div class=" top-20">
               <label class="form">Select a flight:</label>
               <select id="flight-number">
-                  <option value="Sample" selected="selected">ABC-DEF-GHI</option>
+                  <option value="Sample" id="flight-selection" selected="selected">ABC-DEF-GHI</option>
                   
               </select>
           </div>
           <hr />
           <hr />
-          <div class="row top-20">
+          <div class=" top-20">
               <label class="form">Fetch flight status from oracles:</label>
               <btn class="btn btn-primary" id="submit-oracle">Query Oracles</btn>
           </div>
-          <div class="row top-20">
+          <div class="top-20">
               <label class="form">Buy insurance for selected flight:</label>
               <input type="text" id="insurance-value" style="margin:0; width:100px" value="0.5">&nbsp;&nbsp;ETH
               &nbsp;
               &nbsp;
               <btn class="btn btn-primary" id="buy-insurance">Buy Insurance</btn>
           </div>
-          <div class="row top-20">
-              <label class="form">Withdraw credits for all payouts:</label>
+          <div class=" top-20">
+              <label class="form">Withdraw credits for all insurance contracts:</label>
               <btn class="btn btn-primary" id="withdraw-credits">Withdraw Credits</btn>
           </div>
-          <div class="row top-20">
+          <div class=" top-20">
             <label class="form">Get Balance</label>
             <btn class="btn btn-primary" id="get-balance">View Balance</btn>
         </div>
           <div id="results-wrapper" class="top-20">
           </div>
-          <div class="row top-20">
+          <div class="top-20">
           </div>
-          <section>
-            <h3>Your Insured Flights</h3>
-
-            <ul id="insured-flights">
-            </ul>
-        </section>
 
 
         

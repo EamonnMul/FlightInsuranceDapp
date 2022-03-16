@@ -55,10 +55,7 @@ contract FlightSuretyData {
         return authorizedCallers[_address];
     }
 
-    function sendy()  public {
-        require( checkIsAuthorised(msg.sender) , "Caller is not authorized");
-        emit sender(msg.sender, authorizedCallers[msg.sender]);
-    }
+    
 
     event sender(address _s, bool _x);
 

@@ -263,10 +263,6 @@ contract FlightSuretyApp {
         return flightData.isOperational();  // Modify to call data contract's status
     }
 
-    function sendy() public {
-        flightData.sendy();
-
-    }
 
      
 

@@ -40,6 +40,20 @@ export default class Contract {
             .call({ from: self.owner}, callback);
     }
 
+    getUserBalance(callback) {
+        let self = this;
+        let balance = this.web3.eth.getBalance(this.passengerAddress, function (error, result) {
+            if (error) { console.log(error);
+                callback(error, null);
+                return;
+            }
+            let Wei = result;
+            let Ether = self.web3.utils.fromWei(Wei, 'ether');
+
+            callback(error, Ether);
+        });
+    }
+
     fetchFlightStatus(flight, callback) {
         let self = this;
         let payload = {

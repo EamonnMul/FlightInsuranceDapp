@@ -1,6 +1,8 @@
 # FlightSurety
 
-FlightSurety is a sample application project for Udacity's Blockchain course.
+The FlightSurety application is a dApp that enables airlines to form a to register flights, receive flight status updates from mock oracles, and make payouts to passengers who have purchased flight insurance. 
+
+The dApp separates data storage concerns from application logic that make the app possible to upgrade without re-deploying the data contract.
 
 ## Install
 
